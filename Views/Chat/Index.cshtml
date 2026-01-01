@@ -1,0 +1,62 @@
+﻿@{
+    ViewData["Title"] = "Чат на SignalR";
+}
+
+<h1 class="text-center my-4">SignalR Чат (MVC)</h1>
+
+<div class="container">
+    <div class="card">
+        <div class="card-body">
+            <ul id="messagesList" class="list-unstyled" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #f8f9fa;">
+            </ul>
+        </div>
+    </div>
+
+    <div class="input-group mt-3">
+        <input type="text" id="userInput" class="form-control" placeholder="Ваше ім'я (або Анонім)" />
+        <input type="text" id="messageInput" class="form-control" placeholder="Введіть повідомлення..." />
+        <button class="btn btn-primary" onclick="sendMessage()">Надіслати</button>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/9.0.6/signalr.min.js"></script>
+    <!-- актуальна версія: https://cdnjs.com/libraries/microsoft-signalr -->
+    <script>
+        const connection = new signalR.HubConnectionBuilder() // об'єкт для побудови з'єднання з SignalR-хабом
+            .withUrl("/chatHub") // шлях до хабу на сервері (збігається в Program.cs)
+            .withAutomaticReconnect() // вмикаємо автоматичне перепідключення при обриві з'єднання
+            .build(); // завершуємо побудову і отримуємо готове з'єднання
+
+        connection.on("ReceiveMessage", function (user, message) { // реєстрація обробника події, яка приходить від сервера з новим повідомленням
+            const li = document.createElement("li"); // створення нового елемента списку <li> для одного повідомлення
+            li.classList.add("mb-2"); // клас для відступу знизу між повідомленнями
+            li.innerHTML = `<strong>${user}:</strong> ${message}`; // вставка в елемент тексту: ім'я жирним + саме повідомлення
+            document.getElementById("messagesList").appendChild(li); // додавання створеного <li> в кінець списку на сторінці
+
+            // автоматична прокрутка списку вниз, щоб останнє повідомлення було видно
+            const messagesList = document.getElementById("messagesList"); // контейнер зі списком повідомлень
+            messagesList.scrollTop = messagesList.scrollHeight;
+        });
+
+        connection.start().catch(err => console.error(err)); // запуск з'єднання з сервером, при помилці - виведення її в консоль
+
+        function sendMessage() { // функція, яка виконується при натисканні кнопки або Enter
+            const user = document.getElementById("userInput").value.trim() || "Анонім"; // отримання імені, обрізка пробілів, якщо пусто — ставиться "Анонім"
+            const message = document.getElementById("messageInput").value.trim(); // отримання тексту повідомлення і обрізка пробілів
+
+            if (message) { // перевірка, чи є хоч якийсь текст (щоб не надсилати порожняк)
+                connection.invoke("SendMessage", user, message) // виклик методу SendMessage на сервері і передача імені та тексту
+                    .catch(err => console.error(err)); // якщо сталася помилка при надсиланні — виведення в консоль
+                document.getElementById("messageInput").value = ""; // очистка поле вводу після успішного надсилання
+            }
+        }
+
+        // надсилання по Enter
+        document.getElementById("messageInput").addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+}
